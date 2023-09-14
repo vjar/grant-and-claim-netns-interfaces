@@ -235,7 +235,7 @@ int32_t open_and_parse_configuration(config_t *config) {
 	int32_t fd;
 	struct stat sb;
 	char *contents;
-	fd = open("/etc/grant-and-claim-netns-interfaces.conf", O_RDONLY | O_CLOEXEC);
+	fd = open(CONF_FILE, O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
 		perror("open");
 		return 1;
