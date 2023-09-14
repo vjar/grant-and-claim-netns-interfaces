@@ -10,6 +10,12 @@
 #include <string.h>
 #include <errno.h>
 
+typedef struct config {
+	char grantee_pid_discovery[256];
+	char grant_ifaces[256];
+	char claim_ifaces[256];
+} config_t;
+
 int32_t wait_for_child(int32_t *pRv) {
 	int32_t wstatus;
 	waitpid(
@@ -182,12 +188,14 @@ int32_t set_ifnames_netns(char *space_separated_list, uint32_t nsfd) {
 
 int32_t main(int32_t, char *argv[]) {
 	// parse configuration
-	char grant_ifaces[] = "tap1 tap2";
-	char claim_ifaces[] = "tap1 tap2";
-	static char *grantee_pid_discovery = "/bin/macvtap-mknod-targetpid-discovery";
+	config_t *config = &(config_t){
+		.grantee_pid_discovery = "/bin/macvtap-mknod-targetpid-discovery",
+		.grant_ifaces = "tap1 tap2",
+		.claim_ifaces = "tap1 tap2",
+	};
 
 	int32_t grantee_net = 0;
-	if (open_grantee_nsfd(grantee_pid_discovery, argv, &grantee_net)) { return 1; }
+	if (open_grantee_nsfd(config->grantee_pid_discovery, argv, &grantee_net)) { return 1; }
 
 	int32_t claimee_net = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
 	if (claimee_net == -1) {
@@ -195,14 +203,14 @@ int32_t main(int32_t, char *argv[]) {
 		return 1;
 	}
 
-	if (set_ifnames_netns(grant_ifaces, (uint32_t)grantee_net)) { return 1; }
+	if (set_ifnames_netns(config->grant_ifaces, (uint32_t)grantee_net)) { return 1; }
 
 	if (setns(grantee_net, CLONE_NEWNET)) {
 		perror("setns");
 		return 1;
 	}
 
-	if (set_ifnames_netns(claim_ifaces, (uint32_t)claimee_net)) { return 1; }
+	if (set_ifnames_netns(config->claim_ifaces, (uint32_t)claimee_net)) { return 1; }
 	close(grantee_net);
 	close(claimee_net);
 	return 0;
