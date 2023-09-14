@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <net/if.h>
+#include <ctype.h>
 
 typedef struct config {
 	char grantee_pid_discovery[256];
@@ -261,9 +263,44 @@ int32_t open_and_parse_configuration(config_t *config) {
 	return 0;
 }
 
+// https://github.com/torvalds/linux/blob/3a1e2f4/net/core/dev.c#L1028
+bool dev_valid_name(const char *name) {
+        if (*name == '\0')
+                return false;
+        if (strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+                return false;
+        if (!strcmp(name, ".") || !strcmp(name, ".."))
+                return false;
+
+        while (*name) {
+                if (*name == '/' || *name == ':' || isspace(*name))
+                        return false;
+                name++;
+        }
+        return true;
+}
+
+int32_t verify_valid_ifnames(char *space_separated_list, uint64_t listsz) {
+	char copy[listsz];
+	memcpy(copy, space_separated_list, listsz);
+	copy[listsz-1] = '\0';
+
+	char *ifname = strtok(space_separated_list, " ");
+	while (ifname != NULL) {
+		if (!dev_valid_name(ifname)) {
+			fprintf(stderr, "malformed ifname %s\n", ifname);
+			return 1;
+		}
+		ifname = strtok(NULL, " ");
+	}
+	return 0;
+}
+
 int32_t main(int32_t, char *argv[]) {
 	config_t *config = &(config_t){0};
 	if (open_and_parse_configuration(config)) { return 1; }
+	if (verify_valid_ifnames(config->grant_ifaces, sizeof(config->grant_ifaces))) { return 1; }
+	if (verify_valid_ifnames(config->claim_ifaces, sizeof(config->claim_ifaces))) { return 1; }
 
 	int32_t grantee_net = 0;
 	if (open_grantee_nsfd(config->grantee_pid_discovery, argv, &grantee_net)) { return 1; }
