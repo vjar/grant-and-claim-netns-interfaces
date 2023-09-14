@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <errno.h>
 
 int32_t wait_for_child(int32_t *pRv) {
 	int32_t wstatus;
@@ -157,8 +158,6 @@ int32_t nl_set_interface_namespace(const char *ifname, uint32_t nsfd) {
 
 	uint32_t portid = mnl_socket_get_portid(nl);
 	if (mnl_cb_run(buf, nbytes, 0, portid, NULL, NULL) == -1) {
-		// TODO: ENODEV is fine
-		perror("RTNETLINK answers");
 		return 1;
 	}
 
@@ -170,7 +169,11 @@ int32_t set_ifnames_netns(char *space_separated_list, uint32_t nsfd) {
 	char *ifname = strtok(space_separated_list, " ");
 	while (ifname != NULL) {
 		if (nl_set_interface_namespace(ifname, nsfd)) {
+			bool fatal = true;
+			if (errno == ENODEV) { fatal = false; }
+			perror("RTNETLINK answers");
 			fprintf(stderr, "could not set %s netnsfd %d\n", ifname, nsfd);
+			if (fatal) { return 1; }
 		}
 		ifname = strtok(NULL, " ");
 	}
