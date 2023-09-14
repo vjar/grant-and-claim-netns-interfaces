@@ -1,0 +1,2 @@
+#!/bin/bash
+/usr/bin/dbus-launch /usr/bin/podman unshare --rootless-netns /usr/bin/sh -c '/usr/bin/echo $$; exec /usr/bin/cat'
