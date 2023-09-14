@@ -233,7 +233,7 @@ int32_t open_and_parse_configuration(config_t *config) {
 	int32_t fd;
 	struct stat sb;
 	char *contents;
-	fd = open("grant-and-claim-netns-interfaces.conf", O_RDONLY | O_CLOEXEC);
+	fd = open("/etc/grant-and-claim-netns-interfaces.conf", O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
 		perror("open");
 		return 1;
@@ -262,7 +262,6 @@ int32_t open_and_parse_configuration(config_t *config) {
 }
 
 int32_t main(int32_t, char *argv[]) {
-	// parse configuration
 	config_t *config = &(config_t){0};
 	if (open_and_parse_configuration(config)) { return 1; }
 
