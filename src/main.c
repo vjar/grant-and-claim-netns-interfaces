@@ -3,6 +3,7 @@
 #include <libmnl/libmnl.h>
 #include <linux/rtnetlink.h>
 #include <fcntl.h>
+#include <sched.h>
 
 int32_t nl_set_interface_namespace(const char *ifname, uint32_t nsfd) {
 	struct {
@@ -58,6 +59,7 @@ int32_t nl_set_interface_namespace(const char *ifname, uint32_t nsfd) {
 
 	uint32_t portid = mnl_socket_get_portid(nl);
 	if (mnl_cb_run(buf, nbytes, 0, portid, NULL, NULL) == -1) {
+		// TODO: ENODEV is fine
 		perror("RTNETLINK answers");
 		return 1;
 	}
@@ -67,13 +69,29 @@ int32_t nl_set_interface_namespace(const char *ifname, uint32_t nsfd) {
 }
 
 int32_t main() {
-	int32_t nsfd = open("/proc/75653/ns/net", O_RDONLY | O_CLOEXEC);
-	if (nsfd == -1) {
+	int32_t grantee_net = open("/proc/82377/ns/net", O_RDONLY | O_CLOEXEC);
+	if (grantee_net == -1) {
 		perror("open");
 		return 1;
 	}
 
-	if (nl_set_interface_namespace("eno1", (uint32_t)nsfd)) { return 1; }
-	close(nsfd);
+	int32_t claimee_net = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
+	if (claimee_net == -1) {
+		perror("open");
+		return 1;
+	}
+
+	if (nl_set_interface_namespace("tap0", (uint32_t)grantee_net)) {
+		// ok
+	}
+
+	if (setns(grantee_net, CLONE_NEWNET)) {
+		perror("setns");
+		return 1;
+	}
+
+	if (nl_set_interface_namespace("tap0", (uint32_t)claimee_net)) { return 1; }
+	close(grantee_net);
+	close(claimee_net);
 	return 0;
 }
