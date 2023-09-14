@@ -4,7 +4,7 @@
 #include <linux/rtnetlink.h>
 #include <fcntl.h>
 
-int32_t nl_set_interface_namespace(int32_t , int32_t) {
+int32_t nl_set_interface_namespace(const char *ifname, uint32_t nsfd) {
 	struct {
 		struct nlmsghdr nlh;
 		struct ifinfomsg ifh;
@@ -24,15 +24,10 @@ int32_t nl_set_interface_namespace(int32_t , int32_t) {
 	ifh->ifi_family = AF_UNSPEC;
 	ifh->ifi_change = 0;
 
-	int32_t nsfd = open("/proc/75653/ns/net", O_RDONLY | O_CLOEXEC);
-	if (nsfd == -1) {
-		perror("open");
-		return 1;
-	}
 	// TODO: attribute padding required due to some alignment mistake
 	mnl_attr_put_u32(nlh, 0, 0);
-	mnl_attr_put_u32(nlh, IFLA_NET_NS_FD, (uint32_t)nsfd);
-	mnl_attr_put_str(nlh, IFLA_IFNAME, "eno1");
+	mnl_attr_put_u32(nlh, IFLA_NET_NS_FD, nsfd);
+	mnl_attr_put_str(nlh, IFLA_IFNAME, ifname);
 	nbytes = mnl_nlmsg_size(mnl_nlmsg_get_payload_len(nlh));
 
 	nl = mnl_socket_open(NETLINK_ROUTE);
@@ -68,11 +63,17 @@ int32_t nl_set_interface_namespace(int32_t , int32_t) {
 	}
 
 	mnl_socket_close(nl);
-	close(nsfd);
 	return 0;
 }
 
 int32_t main() {
-	if (nl_set_interface_namespace(0, 0)) { return 1; }
+	int32_t nsfd = open("/proc/75653/ns/net", O_RDONLY | O_CLOEXEC);
+	if (nsfd == -1) {
+		perror("open");
+		return 1;
+	}
+
+	if (nl_set_interface_namespace("eno1", (uint32_t)nsfd)) { return 1; }
+	close(nsfd);
 	return 0;
 }
