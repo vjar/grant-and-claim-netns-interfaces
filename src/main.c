@@ -9,6 +9,8 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 
 typedef struct config {
 	char grantee_pid_discovery[256];
@@ -227,13 +229,42 @@ int32_t parse_configuration(const char *conf, config_t *parsed) {
 	return 0;
 }
 
+int32_t open_and_parse_configuration(config_t *config) {
+	int32_t fd;
+	struct stat sb;
+	char *contents;
+	fd = open("grant-and-claim-netns-interfaces.conf", O_RDONLY | O_CLOEXEC);
+	if (fd == -1) {
+		perror("open");
+		return 1;
+	}
+
+	if (fstat(fd, &sb) == -1) {
+		perror("fstat");
+		return 1;
+	}
+
+	if (sb.st_size < 0) { return 1; }
+
+	contents = mmap(NULL,
+		(uint64_t)sb.st_size,
+		PROT_READ,
+		MAP_PRIVATE,
+		fd,
+		0
+	);
+
+	if (parse_configuration(contents, config)) { return 1; }
+
+	munmap(contents, (uint64_t)sb.st_size);
+	close(fd);
+	return 0;
+}
+
 int32_t main(int32_t, char *argv[]) {
 	// parse configuration
 	config_t *config = &(config_t){0};
-
-	if (parse_configuration("GranteePIDDiscovery=/usr/bin/macvtap-mknod-targetpid-discovery\n\
-GrantInterfaces=tap1 tap2\n\
-ClaimInterfaces=tap1 tap2", config)) { return 1; }
+	if (open_and_parse_configuration(config)) { return 1; }
 
 	int32_t grantee_net = 0;
 	if (open_grantee_nsfd(config->grantee_pid_discovery, argv, &grantee_net)) { return 1; }
