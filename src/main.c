@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <string.h>
 
 int32_t wait_for_child(int32_t *pRv) {
 	int32_t wstatus;
@@ -165,8 +166,21 @@ int32_t nl_set_interface_namespace(const char *ifname, uint32_t nsfd) {
 	return 0;
 }
 
+int32_t set_ifnames_netns(char *space_separated_list, uint32_t nsfd) {
+	char *ifname = strtok(space_separated_list, " ");
+	while (ifname != NULL) {
+		if (nl_set_interface_namespace(ifname, nsfd)) {
+			fprintf(stderr, "could not set %s netnsfd %d\n", ifname, nsfd);
+		}
+		ifname = strtok(NULL, " ");
+	}
+	return 0;
+}
+
 int32_t main(int32_t, char *argv[]) {
 	// parse configuration
+	char grant_ifaces[] = "tap1 tap2";
+	char claim_ifaces[] = "tap1 tap2";
 	static char *grantee_pid_discovery = "/bin/macvtap-mknod-targetpid-discovery";
 
 	int32_t grantee_net = 0;
@@ -178,16 +192,14 @@ int32_t main(int32_t, char *argv[]) {
 		return 1;
 	}
 
-	if (nl_set_interface_namespace("tap0", (uint32_t)grantee_net)) {
-		// ok
-	}
+	if (set_ifnames_netns(grant_ifaces, (uint32_t)grantee_net)) { return 1; }
 
 	if (setns(grantee_net, CLONE_NEWNET)) {
 		perror("setns");
 		return 1;
 	}
 
-	if (nl_set_interface_namespace("tap0", (uint32_t)claimee_net)) { return 1; }
+	if (set_ifnames_netns(claim_ifaces, (uint32_t)claimee_net)) { return 1; }
 	close(grantee_net);
 	close(claimee_net);
 	return 0;
