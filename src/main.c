@@ -186,13 +186,54 @@ int32_t set_ifnames_netns(char *space_separated_list, uint32_t nsfd) {
 	return 0;
 }
 
+int32_t parse_configuration(const char *conf, config_t *parsed) {
+	char linebuf[256];
+	uint32_t line_len = strchr(conf, '\n') - conf;
+	const char *nextline = conf;
+	char *endofconf = strchr(conf, '\0');
+	while (line_len < sizeof(linebuf)) {
+		memcpy(linebuf, nextline, line_len);
+		linebuf[line_len] = '\0';
+
+		if (line_len > 0) {
+			int64_t keylen = strchr(linebuf, '=') - linebuf;
+			if (keylen < 0) {
+				fprintf(stderr, "unable to parse configuration: malformed line %s\n", linebuf);
+				return 1;
+			}
+			linebuf[keylen] = '\0';
+			char *key = linebuf;
+			char *value = &linebuf[keylen + 1];
+
+			if (strcmp(key, "GranteePIDDiscovery") == 0) {
+				strncpy(parsed->grantee_pid_discovery, value, sizeof(parsed->grantee_pid_discovery));
+			} else if (strcmp(key, "GrantInterfaces") == 0) {
+				strncpy(parsed->grant_ifaces, value, sizeof(parsed->grant_ifaces));
+			} else if (strcmp(key, "ClaimInterfaces") == 0) {
+				strncpy(parsed->claim_ifaces, value, sizeof(parsed->claim_ifaces));
+			} else {
+				fprintf(stderr, "unable to parse configuration: unknown key %s\n", key);
+			}
+		}
+
+		nextline += line_len + 1;
+		char *endofline = strchr(nextline, '\n');
+		if (endofline == NULL) {
+			endofline = endofconf;
+		}
+		if (endofline > endofconf) { break; }
+		line_len = endofline - nextline;
+	}
+	return 0;
+}
+
 int32_t main(int32_t, char *argv[]) {
 	// parse configuration
-	config_t *config = &(config_t){
-		.grantee_pid_discovery = "/bin/macvtap-mknod-targetpid-discovery",
-		.grant_ifaces = "tap1 tap2",
-		.claim_ifaces = "tap1 tap2",
-	};
+	config_t *config = &(config_t){0};
+
+	if (parse_configuration("GranteePIDDiscovery=/usr/bin/macvtap-mknod-targetpid-discovery\n\
+GrantInterfaces=tap1 tap2\n\
+ClaimInterfaces=tap1 tap2", config)) { return 1; }
 
 	int32_t grantee_net = 0;
 	if (open_grantee_nsfd(config->grantee_pid_discovery, argv, &grantee_net)) { return 1; }
