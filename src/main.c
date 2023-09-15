@@ -285,7 +285,7 @@ int32_t verify_valid_ifnames(char *space_separated_list, uint64_t listsz) {
 	memcpy(copy, space_separated_list, listsz);
 	copy[listsz-1] = '\0';
 
-	char *ifname = strtok(space_separated_list, " ");
+	char *ifname = strtok(copy, " ");
 	while (ifname != NULL) {
 		if (!dev_valid_name(ifname)) {
 			fprintf(stderr, "malformed ifname %s\n", ifname);
