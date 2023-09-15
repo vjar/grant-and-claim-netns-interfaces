@@ -18,8 +18,12 @@ In this program, the namespaces are named as such,
 
 ## Prerequisites
 
-* libmnl-dev ([debian](https://packages.debian.org/search?suite=bookworm&arch=amd64&keywords=libmnl-dev))
-* libmnl-devel ([fedora](https://packages.fedoraproject.org/pkgs/libmnl/libmnl-devel/))
+* libmnl-dev ([debian](https://packages.debian.org/search?keywords=libmnl-dev))
+	or libmnl-devel
+	([fedora](https://packages.fedoraproject.org/pkgs/libmnl/libmnl-devel/))
+* libcap-dev ([debian](https://packages.debian.org/search?keywords=libcap-dev))
+	or libcap-devel
+	([fedora](https://packages.fedoraproject.org/pkgs/libcap/libcap-devel/))
 
 ## Installation
 

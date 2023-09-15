@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <net/if.h>
 #include <ctype.h>
+#include <sys/capability.h>
 
 typedef struct config {
 	char grantee_pid_discovery[256];
@@ -311,8 +312,27 @@ int32_t main(int32_t, char *argv[]) {
 		return 1;
 	}
 
+	cap_t caps = cap_get_proc();
+	if (caps == NULL) {
+		perror("cap_get_proc");
+		return 1;
+	}
+
+	if (cap_set_flag(caps, CAP_EFFECTIVE, 2, (cap_value_t[]){ CAP_NET_ADMIN, CAP_SYS_ADMIN }, CAP_SET) == -1) {
+		perror("cap_set_flag");
+		return 1;
+	}
+
+	if (cap_set_proc(caps) == -1) {
+		perror("cap_set_proc");
+		return 1;
+	}
+
 	if (set_ifnames_netns(config->grant_ifaces, (uint32_t)grantee_net)) { return 1; }
 
+	// cap_sys_admin is needed to enter the user's netns without first
+	// entering the userns, from within which targeting the root netns in
+	// IFLA_NET_NS_FD does not work.
 	if (setns(grantee_net, CLONE_NEWNET)) {
 		perror("setns");
 		return 1;
